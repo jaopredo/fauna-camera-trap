@@ -1,3 +1,9 @@
+# Contents
+/docs/*.pdf
+/data
+# artefatos de execucao: cada run grava aqui (ver src/pa3/tracking.py)
+/outputs
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

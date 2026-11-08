@@ -1,0 +1,35 @@
+[project]
+name = "fauna-camera-trap"
+version = "0.1.0"
+description = "PA3 — Poucos rotulos: fauna em cameras trap com dados nao rotulados"
+readme = "README.md"
+authors = [
+    { name = "jaopredo", email = "joao.profissional.45@gmail.com" }
+]
+# 3.12 e a versao do Colab e a do python3 local: o enunciado exige que o mesmo
+# codigo rode nos dois. Nada aqui precisa de sintaxe mais nova.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.4",
+    "torchvision>=0.19",
+    "timm>=1.0",
+    "albumentations>=1.4",
+    "scikit-learn>=1.5",
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.14",
+]
+
+# Sem [build-system]: o repositorio nao e um pacote instalavel, e rodado da raiz
+# (`python scripts/train.py`, `python predict.py`). uv instala so as dependencias.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

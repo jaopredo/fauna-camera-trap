@@ -1,0 +1,34 @@
+# Documenta o schema de um experimento. Os nomes de `model.name`, `strategy.name` e
+# `data.augment` ficam como TBD: backbone, estrategia de treino e aumentacao sao
+# decisoes de modelagem ainda em aberto. Enquanto nao houver nada registrado,
+# build_model e build_strategy falham listando o que existe — de proposito, para
+# nao rodar com um padrao escolhido por acidente.
+name: exemplo
+seed: 0
+output_dir: outputs
+
+data:
+  root: data
+  budget: 5            # 1, 5 ou 20 rotulos por classe (aninhados)
+  image_size: 224
+  batch_size: 32
+  num_workers: 2
+  augment: TBD
+
+# Factory com Registry: o nome e resolvido em src/models/registry.py
+model:
+  name: TBD
+  pretrained: false
+  params: {}
+
+# Strategy de treino: supervisionado na Parte 0, o metodo da trilha na Parte 1
+strategy:
+  name: TBD
+  params: {}
+
+optim:
+  epochs: 30
+  lr: 0.001
+  weight_decay: 0.0
+  monitor: macro_f1    # metrica de validacao que define o best.pt
+  save_every: 1
