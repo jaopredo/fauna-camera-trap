@@ -4,7 +4,9 @@
 # build_model e build_strategy falham listando o que existe — de proposito, para
 # nao rodar com um padrao escolhido por acidente.
 name: exemplo
-seed: 0
+# Seeds do experimento. Uma execucao e uma seed; o experimento e o conjunto.
+# O enunciado pede 3 no orcamento de 5 e uma nos de 1 e 20.
+seeds: [0]
 output_dir: outputs
 
 data:

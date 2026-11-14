@@ -33,11 +33,16 @@ def labeled_loader(
     transform: Transform | None,
     shuffle: bool,
     budget: int | None = None,
+    drop_last: bool = False,
 ) -> DataLoader:
     """Loader de um conjunto rotulado.
 
     Para ``Split.TRAIN`` os rotulos vem do orcamento (``budget``, ou
     ``cfg.budget``); para ``val`` e ``test_public``, do CSV do proprio conjunto.
+
+    ``drop_last`` e ``False`` por padrao, ao contrario do loader sem rotulo. Com o
+    orcamento de 5 sao 105 imagens no total: descartar o ultimo batch incompleto
+    jogaria fora ate 9 delas por epoca, quase 9% do unico dado rotulado que existe.
     """
     if split is Split.TRAIN:
         examples = catalog.budget(budget if budget is not None else cfg.budget)
@@ -46,7 +51,7 @@ def labeled_loader(
     dataset = LabeledImageDataset.from_examples(
         catalog, split, examples, transform=transform
     )
-    return _loader(dataset, cfg, shuffle=shuffle, drop_last=shuffle)
+    return _loader(dataset, cfg, shuffle=shuffle, drop_last=drop_last)
 
 
 def unlabeled_loader(

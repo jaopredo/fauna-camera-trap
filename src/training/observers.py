@@ -75,7 +75,9 @@ class ConsoleLogger(TrainingObserver):
     """Uma linha por epoca no terminal."""
 
     def on_train_start(self, context: TrainingContext) -> None:
-        print(f"treino em {context.run_dir} | monitor: {context.monitor}")
+        # flush: em execucao redirecionada (background, nohup, Colab) o buffer
+        # seguraria as linhas ate o fim do treino, e nao daria para acompanhar
+        print(f"treino em {context.run_dir} | monitor: {context.monitor}", flush=True)
 
     def on_epoch_end(self, record: EpochRecord, context: TrainingContext) -> None:
         parts = [f"epoca {record.epoch:3d}/{context.total_epochs}"]
@@ -87,7 +89,7 @@ class ConsoleLogger(TrainingObserver):
             parts.append(f"val F1 {record.validation.macro_f1:.4f}")
             parts.append(f"acc {record.validation.accuracy:.4f}")
         parts.append(f"{record.seconds:.1f}s")
-        print(" | ".join(parts))
+        print(" | ".join(parts), flush=True)
 
 
 class HistoryWriter(TrainingObserver):

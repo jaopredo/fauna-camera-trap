@@ -22,7 +22,7 @@ from src.data.splits import Split, parse_split
 from src.errors import AppError
 from src.evaluation import evaluate
 from src.models import build_model, load_checkpoint
-from src.tracking import seed_everything, write_metrics
+from src.tracking import resolve_device, seed_everything, write_metrics
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,15 +36,18 @@ def parse_args() -> argparse.Namespace:
         help="val para selecao; test_public apenas para reportar",
     )
     parser.add_argument("--set", nargs="*", default=(), metavar="CHAVE=VALOR")
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--device", default="auto", help="auto, cpu ou cuda")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     config = load_config(args.config, overrides=args.set)
-    seed_everything(config.seed)
+    # a avaliacao e deterministica; fixar a seed so mantem o ambiente igual ao
+    # do treino, caso alguma transformacao futura use aleatoriedade
+    seed_everything(config.seeds[0])
     split = parse_split(args.split)
+    args.device = resolve_device(args.device)
 
     catalog = DataCatalog.open(config.data.root)
     num_classes = len(catalog.classes)

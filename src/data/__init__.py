@@ -1,4 +1,8 @@
-"""Leitura e preparacao dos dados do pacote PA3."""
+"""Leitura e preparacao dos dados do pacote PA3.
+
+``src.data.transforms`` e importado no fim para que o decorador
+``@register_augmentation`` rode no import do pacote.
+"""
 
 from src.data.catalog import (
     CatalogError,
@@ -36,3 +40,5 @@ __all__ = [
     "parse_split",
     "validate_budget",
 ]
+
+from src.data import transforms  # noqa: E402,F401  isort:skip

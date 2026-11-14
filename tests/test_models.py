@@ -102,3 +102,52 @@ def test_checkpoint_sobrevive_a_ida_e_volta(tmp_path):
 def test_checkpoint_ausente_tem_erro_claro(tmp_path):
     with pytest.raises(CheckpointError, match="nao encontrado"):
         load_checkpoint(tmp_path / "nao_existe.pt", model=TinyModel())
+
+
+# ===================== modelos concretos da Parte 0 =========================
+# Importados pelo pacote: src/models/__init__.py registra small_cnn e resnet18.
+
+SMALL_CNN_PARAMETROS = 394_293
+RESNET18_PARAMETROS = 11_187_285
+
+
+def test_os_dois_modelos_do_piso_estao_registrados():
+    assert {"small_cnn", "resnet18"} <= set(available_models())
+
+
+def test_small_cnn_tem_a_contagem_esperada():
+    modelo = build_model(ModelConfig(name="small_cnn"), num_classes=21)
+    assert count_parameters(modelo) == SMALL_CNN_PARAMETROS
+
+
+def test_resnet18_cabe_no_teto_do_enunciado():
+    """93% do teto: a margem e pequena e qualquer acrescimo precisa ser medido.
+
+    O numero esta travado aqui de proposito. Se uma mudanca futura (outra cabeca,
+    uma camada a mais) alterar a contagem, este teste falha antes do treino.
+    """
+    modelo = build_model(ModelConfig(name="resnet18"), num_classes=21)
+    total = count_parameters(modelo)
+    assert total == RESNET18_PARAMETROS
+    assert total <= MAX_PARAMETERS
+    assert total / MAX_PARAMETERS > 0.9, "se a margem aumentou, revise o teste"
+
+
+@pytest.mark.parametrize("nome", ["small_cnn", "resnet18"])
+def test_forward_devolve_logits_das_21_classes(nome):
+    modelo = build_model(ModelConfig(name=nome), num_classes=21)
+    modelo.eval()
+    with torch.no_grad():
+        saida = modelo(torch.randn(2, 3, 224, 224))
+    assert saida.shape == (2, 21)
+
+
+def test_small_cnn_recusa_pesos_pre_treinados():
+    """A versao (a) do enunciado e "treinada do zero" — nao ha variante silenciosa."""
+    with pytest.raises(ValueError, match="treinada do zero"):
+        build_model(ModelConfig(name="small_cnn", pretrained=True), num_classes=21)
+
+
+def test_numero_de_classes_vem_do_catalogo_nao_do_codigo():
+    modelo = build_model(ModelConfig(name="resnet18"), num_classes=7)
+    assert modelo.fc.out_features == 7

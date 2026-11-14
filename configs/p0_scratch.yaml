@@ -1,0 +1,32 @@
+# Parte 0 (a) — o chao: CNN pequena treinada do zero nos mesmos 105 rotulos.
+# Mesma entrada, mesma estrategia e mesmo orcamento da versao (b): a unica coisa
+# que muda e a arquitetura e a ausencia de pesos herdados.
+name: p0_scratch
+# Protocolo do enunciado: 3 seeds no orcamento de 5, para media +- desvio.
+# Rodar este config treina as tres, cada uma no seu diretorio.
+seeds: [0, 42, 123]
+output_dir: outputs
+
+data:
+  root: data
+  budget: 5
+  image_size: 224
+  batch_size: 16
+  num_workers: 4
+  augment: basic
+
+model:
+  name: small_cnn
+  pretrained: false      # a versao (a) e "treinada do zero", por definicao
+  params: {}
+
+strategy:
+  name: supervised
+  params: {}
+
+optim:
+  epochs: 60
+  lr: 0.001              # do zero: taxa maior que no fine-tuning
+  weight_decay: 0.0001
+  monitor: macro_f1
+  save_every: 5

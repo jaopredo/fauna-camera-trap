@@ -9,10 +9,11 @@ authors = [
 # 3.12 e a versao do Colab e a do python3 local: o enunciado exige que o mesmo
 # codigo rode nos dois. Nada aqui precisa de sintaxe mais nova.
 requires-python = ">=3.12,<3.13"
+# torch e torchvision NAO entram aqui de proposito: o indice de onde vem a roda
+# depende da placa (CUDA, ROCm ou CPU), e fixar isso no pyproject obrigaria todo
+# mundo ao mesmo backend. `make setup` instala os dois a parte, com
+# `--torch-backend=auto`, que detecta o hardware da maquina.
 dependencies = [
-    "torch>=2.4",
-    "torchvision>=0.19",
-    "timm>=1.0",
     "albumentations>=1.4",
     "scikit-learn>=1.5",
     "numpy>=1.26",

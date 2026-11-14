@@ -30,6 +30,7 @@ class RunContext:
     commit: str
     dirty: bool
     started_at: str
+    device: str = "cpu"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +40,10 @@ class RunContext:
             "dirty": self.dirty,
             "started_at": self.started_at,
             "python": platform.python_version(),
+            # o dispositivo entra no manifesto porque numeros de GPU e de CPU so
+            # sao comparaveis entre si: ordem de soma e algoritmo de convolucao
+            # mudam, e a diferenca aparece nas casas decimais da metrica
+            "device": self.device,
         }
 
 
@@ -67,6 +72,36 @@ def git_commit(repo: Path | None = None) -> tuple[str, bool]:
         return commit, bool(status)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return "unknown", True
+
+
+def resolve_device(preference: str = "auto") -> str:
+    """Traduz ``auto`` no melhor dispositivo disponivel.
+
+    O padrao e ``auto`` justamente para evitar o modo de falha caro: treinar horas
+    em CPU sem perceber, numa maquina que tem GPU. Com ROCm o dispositivo continua
+    se chamando ``cuda`` — o PyTorch expoe a Radeon pela mesma API.
+
+    ``cpu`` explicito continua valendo: e o que o ``predict.py`` usa, porque o
+    enunciado exige que o modelo entregue rode em CPU.
+    """
+    if preference != "auto":
+        return preference
+
+    import torch
+
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def describe_device(device: str) -> str:
+    """Uma linha dizendo onde a execucao vai rodar."""
+    import torch
+
+    if device.startswith("cuda") and torch.cuda.is_available():
+        propriedades = torch.cuda.get_device_properties(0)
+        return (
+            f"{device} | {propriedades.name} | {propriedades.total_memory / 1e9:.1f} GB"
+        )
+    return f"{device} | {platform.processor() or 'CPU'}"
 
 
 def seed_everything(seed: int, *, deterministic: bool = True) -> int:
@@ -101,6 +136,7 @@ def create_run(
     seed: int,
     config: Mapping[str, Any] | None = None,
     repo: Path | None = None,
+    device: str = "cpu",
 ) -> RunContext:
     """Cria ``output_dir/name`` e grava o manifesto da execucao.
 
@@ -116,6 +152,7 @@ def create_run(
         commit=commit,
         dirty=dirty,
         started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        device=device,
     )
     manifest = {"run": context.as_dict(), "config": dict(config or {})}
     (run_dir / MANIFEST_NAME).write_text(
@@ -132,3 +169,33 @@ def write_metrics(run_dir: Path, name: str, payload: Mapping[str, Any]) -> Path:
         json.dumps(dict(payload), indent=2, ensure_ascii=False), encoding="utf-8"
     )
     return path
+
+
+def read_manifest(run_dir: Path | str) -> dict[str, Any]:
+    """Le o manifesto de uma execucao, normalizando formatos antigos.
+
+    Execucoes gravadas antes de 13/11/2025 guardavam ``seed`` (singular) no bloco
+    de configuracao, antes de o experimento passar a declarar ``seeds``. A seed
+    efetiva da execucao sempre esteve em ``run.seed``, entao a traducao nao muda
+    numero nenhum — so a forma — e o manifesto em disco fica intacto: o registro
+    do experimento nao e reescrito.
+    """
+    path = Path(run_dir) / MANIFEST_NAME
+    if not path.exists():
+        raise FileNotFoundError(f"manifesto nao encontrado: {path}")
+    manifesto = json.loads(path.read_text(encoding="utf-8"))
+
+    config = dict(manifesto.get("config") or {})
+    if "seed" in config and "seeds" not in config:
+        config["seeds"] = [config.pop("seed")]
+    manifesto["config"] = config
+    return manifesto
+
+
+def manifest_seed(manifesto: Mapping[str, Any]) -> int:
+    """A seed **desta** execucao.
+
+    Vem de ``run.seed``, nunca do bloco de configuracao: o config declara o
+    conjunto de seeds do experimento, e o diretorio corresponde a uma delas.
+    """
+    return int(manifesto["run"]["seed"])

@@ -9,14 +9,24 @@ parâmetros que roda em CPU, sem internet.
 Python 3.12 (a versão do Colab). Com [uv](https://docs.astral.sh/uv/):
 
 ```bash
-make setup          # uv sync
+make setup          # dependências + torch detectando a placa
+make ambiente       # confere qual roda de torch ficou instalada
 ```
 
-Sem uv:
+**`torch` e `torchvision` não estão no `pyproject.toml`, de propósito.** A roda certa
+depende da placa, e fixá-la nas dependências obrigaria todo mundo ao mesmo backend.
+`make setup` instala os dois à parte com `--torch-backend=auto`, que detecta o
+hardware: resolve para `+rocmX.Y` numa Radeon, `+cuXXX` numa NVIDIA e CPU se não
+houver GPU.
 
 ```bash
-make setup-pip      # venv + pip install -r requirements.txt
+make setup-cpu      # força a roda de CPU (Colab sem GPU, CI, ou medir a inferência)
+make setup-pip      # sem uv: venv + pip + requirements.txt
+make setup-cpu-pip  # idem, forçando CPU
 ```
+
+O `requirements.txt` versionado também não traz torch, pelo mesmo motivo — os alvos
+`setup-pip` o instalam em seguida.
 
 ## Dados
 
@@ -34,15 +44,22 @@ Os testes que dependem do pacote são pulados se ele não estiver presente.
 ## Um comando que treina
 
 ```bash
-python scripts/train.py --config configs/exemplo.yaml
+python scripts/train.py --config configs/p0_finetune.yaml
 ```
 
-Variações sem criar outro YAML (é assim que a Parte 2 varre seeds e orçamentos):
+O YAML declara quantas seeds o experimento tem (`seeds: [0, 42, 123]`), e o comando
+acima roda **todas** elas, cada uma no seu diretório. Variações sem criar outro YAML:
 
 ```bash
-python scripts/train.py --config configs/exemplo.yaml --set seed=1 data.budget=20
-python scripts/train.py --config configs/exemplo.yaml --resume
+python scripts/train.py --config configs/p0_finetune.yaml --seed 42          # só uma delas
+python scripts/train.py --config configs/p0_finetune.yaml --set data.budget=20
+python scripts/train.py --config configs/p0_finetune.yaml --set seeds=[0,7]
+python scripts/train.py --config configs/p0_finetune.yaml --resume
 ```
+
+`configs/exemplo.yaml` existe só para documentar o schema: os nomes de `model`,
+`strategy` e `augment` nele são `TBD`, e rodá-lo falha de propósito, listando o que
+está registrado.
 
 Cada execução grava em `outputs/<nome>_b<orçamento>_s<seed>/`: `manifest.json`
 (configuração, seed e commit), `history.json`, `best.pt` e `last.pt`.
@@ -50,8 +67,8 @@ Cada execução grava em `outputs/<nome>_b<orçamento>_s<seed>/`: `manifest.json
 ## Um comando que avalia
 
 ```bash
-python scripts/evaluate.py --config configs/exemplo.yaml \
-    --checkpoint outputs/<run>/best.pt --split val
+python scripts/evaluate.py --config configs/p0_finetune.yaml \
+    --checkpoint outputs/p0_finetune_b5_s0/best.pt --split val
 ```
 
 `--split val` é o conjunto de seleção de modelo; `--split test_public` só reporta
@@ -59,6 +76,37 @@ números. A regra está no código, não só na documentação: as funções de 
 `src/evaluation/selection.py` recusam qualquer resultado que não venha do
 `val`.
 
+## Reproduzir a Parte 0 — o piso
+
+Duas versões supervisionadas com os 105 rótulos de `rotulos_5.csv`: **(a)** uma CNN
+pequena do zero (`small_cnn`, 394.293 parâmetros) e **(b)** ResNet-18 do ImageNet com
+fine-tuning (11.187.285 parâmetros, 93% do teto de 12 M).
+
+```bash
+make parte0
+```
+
+Equivalente, sem o Makefile:
+
+```bash
+python scripts/train.py --config configs/p0_scratch.yaml
+python scripts/train.py --config configs/p0_finetune.yaml
+python scripts/report_p0.py
+```
+
+As três seeds estão declaradas nos próprios YAMLs (`seeds: [0, 42, 123]`), que é onde
+o protocolo do enunciado — 3 seeds no orçamento de 5, uma nos de 1 e 20 — fica
+registrado. Nenhum laço de shell prescreve seed.
+
+O relatório escreve em `outputs/p0/`: `tabela.md` (F1 macro e acurácia no
+`test_public`, média ± desvio sobre as 3 seeds), `f1_por_classe.csv`,
+`confusao_finetune.png` e `curva_finetune.png`; e acrescenta as linhas do orçamento
+de 5 em `curva_orcamento.csv`.
+
+As figuras saem de uma seed fixada de antemão (`--figuras-seed`; sem ela, a primeira
+declarada em `seeds`), nunca da melhor seed no `test_public` — escolher pelo teste
+seria seleção de modelo nele.
+ 
 ## Predição (entrega)
 
 ```bash

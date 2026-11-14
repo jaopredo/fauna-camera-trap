@@ -1,0 +1,33 @@
+# Parte 0 (b) — o piso com transferencia: ResNet-18 do ImageNet, fine-tuning
+# completo nos 105 rotulos. E o backbone do resto do PA (ver docs/decisions.md, D8).
+# O teto de referencia do enunciado (0,686 de F1 macro) foi medido com esta
+# arquitetura, entao os numeros sao diretamente comparaveis.
+name: p0_finetune
+# Protocolo do enunciado: 3 seeds no orcamento de 5, para media +- desvio.
+# Rodar este config treina as tres, cada uma no seu diretorio.
+seeds: [0, 42, 123]
+output_dir: outputs
+
+data:
+  root: data
+  budget: 5              # 105 imagens: 5 por classe
+  image_size: 224
+  batch_size: 16         # 7 passos por epoca; 32 daria so 4
+  num_workers: 4
+  augment: basic
+
+model:
+  name: resnet18
+  pretrained: true       # baixa pesos no treino; predict.py forca false
+  params: {}
+
+strategy:
+  name: supervised
+  params: {}
+
+optim:
+  epochs: 60             # o bastante para a curva mostrar a memorizacao
+  lr: 0.0001             # fine-tuning: taxa baixa para nao destruir o ImageNet
+  weight_decay: 0.0001
+  monitor: macro_f1      # metrica principal do PA, escolhida so no val
+  save_every: 5
