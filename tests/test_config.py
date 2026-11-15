@@ -244,3 +244,39 @@ def test_manifesto_registra_o_conjunto_declarado(tmp_path):
         escrever(tmp_path, BASE.replace("seeds: [0]", "seeds: [0, 42]"))
     )
     assert config.as_dict()["seeds"] == [0, 42]
+
+
+# ===================== parametros do FixMatch ===============================
+
+
+def test_razao_do_lote_sem_rotulo_vem_do_config(tmp_path):
+    config = load_config(
+        escrever(
+            tmp_path, BASE + "data:\n  batch_size: 16\n  unlabeled_batch_ratio: 7\n"
+        )
+    )
+    assert config.data.unlabeled_batch_size == 112
+
+
+@pytest.mark.parametrize("valor", [0, -1])
+def test_razao_invalida_e_recusada(tmp_path, valor):
+    with pytest.raises(ConfigError, match="unlabeled_batch_ratio"):
+        load_config(
+            escrever(tmp_path, BASE + f"data:\n  unlabeled_batch_ratio: {valor}\n")
+        )
+
+
+def test_aumentacao_sem_rotulo_cai_na_do_rotulado(tmp_path):
+    """Metodo que nao precisa de duas vistas nao deve ter que declarar duas vezes."""
+    config = load_config(escrever(tmp_path, BASE + "data:\n  augment: basic\n"))
+    assert config.data.unlabeled_augment() == "basic"
+
+
+def test_aumentacao_sem_rotulo_quando_declarada(tmp_path):
+    config = load_config(
+        escrever(
+            tmp_path,
+            BASE + "data:\n  augment: weak\n  augment_unlabeled: weak_strong\n",
+        )
+    )
+    assert config.data.unlabeled_augment() == "weak_strong"

@@ -1,0 +1,46 @@
+# Parte 1, Trilha B — FixMatch com alinhamento de distribuicao (DA).
+# Mesmo backbone da Parte 0 (b), como o enunciado exige.
+#
+# Identico ao p1_fixmatch, exceto pelo DA. E a correcao de vies que o enunciado
+# exige testar: realinha o pseudo-rotulo pela razao entre a distribuicao alvo
+# (uniforme) e a media movel das predicoes do modelo. Comparar com p1_fixmatch
+# isola o efeito da correcao, porque todo o resto e igual.
+name: p1_fixmatch_da
+seeds: [0, 42, 123]
+output_dir: outputs
+
+data:
+  root: data
+  budget: 5
+  image_size: 224
+  batch_size: 16
+  # mu do FixMatch: 7 imagens sem rotulo por rotulada -> lote de 112 sem rotulo,
+  # ~58 passos por epoca varrendo as 6.505
+  unlabeled_batch_ratio: 7
+  num_workers: 8
+  augment: weak              # ramo rotulado: vista fraca
+  augment_unlabeled: weak_strong   # ramo sem rotulo: as duas vistas
+
+model:
+  name: resnet18
+  pretrained: true
+  params: {}
+
+strategy:
+  name: fixmatch
+  params:
+    tau: 0.80
+    lambda_u: 1.0
+    distribution_alignment: true
+    da_momentum: 0.999
+
+optim:
+  epochs: 30
+  # 3e-5, nao o 1e-4 da Parte 0: com primary_source=unlabeled sao ~58 passos
+  # por epoca em vez de 7, logo ~4x mais passagens pelos 105 rotulos. Com
+  # 1e-4 o ce cai para 0,0006, o modelo chega a confianca media 0,94 e o
+  # limiar deixa de filtrar (mask_rate 0,995). Escolhido no val.
+  lr: 0.00003
+  weight_decay: 0.0001
+  monitor: macro_f1
+  save_every: 5

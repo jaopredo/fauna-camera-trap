@@ -79,3 +79,21 @@ def test_basic_espelha_mas_preserva_o_conteudo(imagem):
 
 def test_tamanho_vem_do_config(imagem):
     assert build_augmentation("eval", image_size=96)(imagem).shape == (3, 96, 96)
+
+
+# ===================== aumentacao fraca =====================================
+# Nao e da trilha B: o modelo entregue (`p0_finetune_weak`) usa esta aumentacao.
+# Ver o comentario em src/data/transforms.py.
+
+
+def test_weak_esta_registrada():
+    assert "weak" in available_augmentations()
+
+
+def test_weak_difere_de_eval(imagem):
+    com_translacao = build_augmentation("weak", image_size=TAMANHO, horizontal_flip=0.0)
+    avaliacao = build_augmentation("eval", image_size=TAMANHO)
+    # a translacao e aleatoria: em varias amostras, ao menos uma difere
+    assert any(
+        not torch.equal(com_translacao(imagem), avaliacao(imagem)) for _ in range(10)
+    )

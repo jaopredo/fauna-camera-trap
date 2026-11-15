@@ -92,17 +92,34 @@ class DataConfig(_Section):
     image_size: int = 224
     batch_size: int = 32
     num_workers: int = 2
-    #: nome da politica de aumentacao registrada em ``src.data.augment``
+    #: nome da estrategia de aumentacao registrada em ``src.data.augment``,
+    #: aplicada ao ramo rotulado
     augment: str = "none"
+    #: estrategia do ramo sem rotulo. ``None`` reusa ``augment``; o FixMatch usa
+    #: ``weak_strong``, que devolve as duas vistas da mesma imagem
+    augment_unlabeled: str | None = None
+    #: o mu do FixMatch: quantas imagens sem rotulo por imagem rotulada no lote
+    #: (aula 13, p. 87 — "a known ratio of unlabeled samples with respect to
+    #: labeled samples"). 1 mantem os dois lotes do mesmo tamanho.
+    unlabeled_batch_ratio: int = 1
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "root", Path(self.root))
         validate_budget(self.budget)
-        for name in ("image_size", "batch_size"):
+        for name in ("image_size", "batch_size", "unlabeled_batch_ratio"):
             if getattr(self, name) <= 0:
                 raise ConfigError(f"data.{name} precisa ser positivo")
         if self.num_workers < 0:
             raise ConfigError("data.num_workers nao pode ser negativo")
+
+    @property
+    def unlabeled_batch_size(self) -> int:
+        """Tamanho do lote sem rotulo: ``batch_size * mu``."""
+        return self.batch_size * self.unlabeled_batch_ratio
+
+    def unlabeled_augment(self) -> str:
+        """Estrategia do ramo sem rotulo, caindo em ``augment`` quando nao declarada."""
+        return self.augment_unlabeled or self.augment
 
 
 @dataclass(frozen=True)

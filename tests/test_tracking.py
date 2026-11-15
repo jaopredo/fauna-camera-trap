@@ -6,9 +6,11 @@ import json
 
 import pytest
 
+from src.config.loader import load_config
 from src.tracking import (
     MANIFEST_NAME,
     create_run,
+    find_runs,
     git_commit,
     seed_everything,
     write_metrics,
@@ -149,3 +151,75 @@ def test_descricao_do_dispositivo_e_uma_linha():
     from src.tracking import describe_device
 
     assert "cpu" in describe_device("cpu")
+
+
+# ===================== localizar execucoes =================================
+
+
+def montar_execucoes(raiz, nomes, *, com_checkpoint=True):
+    """Cria diretorios de execucao vazios, com ou sem o arquivo de checkpoint."""
+    for nome in nomes:
+        d = raiz / nome
+        d.mkdir(parents=True)
+        if com_checkpoint:
+            (d / "best.pt").write_bytes(b"")
+    return raiz
+
+
+def test_filtra_pelo_orcamento(tmp_path):
+    """O risco real: a tabela do orcamento de 5 somando as execucoes de 1 e 20.
+
+    As tres convivem no mesmo ``outputs/`` porque a Parte 2 reusa os configs das
+    Partes 0 e 1, mudando so ``data.budget``. Sem este filtro a media sairia
+    errada sem nenhuma mensagem de erro.
+    """
+    montar_execucoes(
+        tmp_path,
+        [
+            "p0_finetune_b1_s0",
+            "p0_finetune_b5_s0",
+            "p0_finetune_b5_s42",
+            "p0_finetune_b20_s0",
+        ],
+    )
+    nomes = [d.name for d in find_runs(tmp_path, "p0_finetune", budget=5)]
+    assert nomes == ["p0_finetune_b5_s0", "p0_finetune_b5_s42"]
+
+
+def test_prefixo_e_exato_e_nao_captura_o_controle(tmp_path):
+    """``p0_finetune_weak`` e outro experimento: o controle de aumentacao."""
+    montar_execucoes(tmp_path, ["p0_finetune_b5_s0", "p0_finetune_weak_b5_s0"])
+    assert [d.name for d in find_runs(tmp_path, "p0_finetune", budget=5)] == [
+        "p0_finetune_b5_s0"
+    ]
+    assert [d.name for d in find_runs(tmp_path, "p0_finetune_weak", budget=5)] == [
+        "p0_finetune_weak_b5_s0"
+    ]
+
+
+def test_requires_ignora_execucao_sem_checkpoint(tmp_path):
+    """Treino interrompido deixa o diretorio sem ``best.pt``; avaliar daria erro."""
+    montar_execucoes(tmp_path, ["p1_fixmatch_b5_s0"])
+    montar_execucoes(tmp_path, ["p1_fixmatch_b5_s42"], com_checkpoint=False)
+    assert [
+        d.name for d in find_runs(tmp_path, "p1_fixmatch", budget=5, requires="best.pt")
+    ] == ["p1_fixmatch_b5_s0"]
+    assert len(find_runs(tmp_path, "p1_fixmatch", budget=5)) == 2
+
+
+def test_sem_execucoes_devolve_lista_vazia(tmp_path):
+    assert find_runs(tmp_path, "p1_fixmatch", budget=5) == []
+
+
+def test_casa_com_a_convencao_de_run_name(tmp_path, project_root):
+    """``find_runs`` e ``run_name`` sao as duas pontas da mesma convencao.
+
+    Se uma mudar sem a outra, os relatorios param de achar as execucoes sem erro
+    nenhum: a tabela sai vazia. Este teste amarra as duas.
+    """
+    config = load_config(project_root / "configs" / "p1_fixmatch.yaml")
+    nome = config.run_name(config.seeds[0])
+    montar_execucoes(tmp_path, [nome])
+    assert find_runs(tmp_path, config.name, budget=config.data.budget) == [
+        tmp_path / nome
+    ]

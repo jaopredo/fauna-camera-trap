@@ -15,6 +15,7 @@ Arquivos em `docs/` (fora do Git por tamanho; ver `.gitignore`).
 | `DL_20242_13_Unsupervised.pdf` | 95 | aprendizado com dados não rotulados: deep clustering, auto-supervisão, rótulos ruidosos |
 | `DL_20242_14_Self_Attention.pdf` | 64 | self-attention, transformers, atenção para visão |
 | `DL_20242_15_VisualFM.pdf` | 110 | foundation models visuais: ViT, Swin, MAE, MSN |
+| `A2.pdf` | 53 | **resumo do próprio aluno**, não é aula — ver ressalva abaixo |
 
 ## Por tópico
 
@@ -49,7 +50,41 @@ Arquivos em `docs/` (fora do Git por tamanho; ver `.gitignore`).
   rotulados e supervisionados.
 - `13_Unsupervised`, **p. 25–32** — SimCLR (Trilha A).
 - `13_Unsupervised`, **p. 60–61** — SwAV (Trilha A).
+- `13_Unsupervised`, **p. 85–91** — FixMatch (Trilha B): definição, razão mu e peso
+  lambda, CE na vista fraca, pseudo-rótulo duro com limiar, soma ponderada.
 - `15_VisualFM` — foundation models (Trilha C).
+
+### Localização a partir de rótulo de classificação (Parte 3)
+- `13_Unsupervised`, **p. 77–82** — *Weakly-Supervised Learning*: treinar com
+  rótulos mais baratos do que a tarefa exige. **A p. 80–82 traz o CAM** (*Class
+  Activation Mapping*), citando `Learning Deep Features for Discriminative
+  Localization`, Zhou et al., CVPR 2016. A receita da aula: treinar a rede de
+  classificação, fixar as camadas convolucionais, aprender o peso da contribuição de
+  cada mapa de ativação para a classe, e somar as contribuições para obter o esboço
+  das zonas ativas.
+- **Consequência para a Parte 3:** o mapa de saliência sai de **CAM, não Grad-CAM**.
+  CAM exige *global average pooling* seguido de camada linear, e a ResNet-18 tem
+  exatamente isso (`avgpool` → `fc`): os pesos de `fc` **são** os `w_k^c` da fórmula,
+  então não há camada nova a treinar nem hook a instalar. Grad-CAM ficaria fora do
+  material da disciplina sem necessidade.
+
+## Sobre o `A2.pdf`
+
+É o **resumo escrito pelo próprio aluno** para a prova A2, não material do professor.
+Serve para saber *o que ele já domina* (ver a memória do projeto), e **não** como
+fonte para citar em `docs/decisions.md`: ele mesmo avisou que "não é SUPER rigoroso"
+e "talvez contenha alguns erros".
+
+Cobre: autoencoders (PCA, AE, convolucional, denoising, VAE); similaridade (one-shot,
+siamesas, contrastive, WDMC, triplet); dados não rotulados (DEC, Deep K-Means,
+SimCLR, LLP, SELFIE, **CAM**, **FixMatch**); self-attention (QKV, multihead,
+Transformers, SASA).
+
+**A seção 5, de Visual Foundation Models, está vazia** — só o título. É exatamente o
+conteúdo que a Trilha C precisaria, e é o maior buraco a cobrir na apresentação.
+
+Onde o resumo e o PDF da aula divergirem, **vale o PDF da aula**. O ponto que mais
+importava (CAM) foi conferido e estava correto.
 
 ## O que **não** está nas aulas disponíveis
 

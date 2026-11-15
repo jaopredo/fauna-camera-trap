@@ -78,8 +78,13 @@ def treinar_uma_seed(config, seed: int, args) -> None:
 
     catalog = DataCatalog.open(config.data.root)
     num_classes = len(catalog.classes)
+    # dois ramos, duas estrategias: o rotulado recebe a aumentacao de `augment`;
+    # o sem rotulo, a de `augment_unlabeled` — que no FixMatch devolve duas vistas
     transform = build_augmentation(
         config.data.augment, image_size=config.data.image_size
+    )
+    transform_unlabeled = build_augmentation(
+        config.data.unlabeled_augment(), image_size=config.data.image_size
     )
 
     model = build_model(config.model, num_classes=num_classes).to(args.device)
@@ -92,7 +97,7 @@ def treinar_uma_seed(config, seed: int, args) -> None:
     }
     if "unlabeled" in strategy.required_sources:
         loaders["unlabeled"] = unlabeled_loader(
-            catalog, config.data, transform=transform
+            catalog, config.data, transform=transform_unlabeled
         )
 
     # a validacao usa a politica de avaliacao, nunca a de treino

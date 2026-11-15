@@ -8,13 +8,18 @@ import pytest
 
 from src.analysis.budget import (
     BUDGET_COLUMNS,
+    REFERENCE_CEILING_F1,
     BudgetRow,
     read_budget_curve,
     summarize,
     update_budget_curve,
     write_budget_curve,
 )
-from src.analysis.figures import plot_confusion_matrix, plot_training_curve
+from src.analysis.figures import (
+    plot_budget_curve,
+    plot_confusion_matrix,
+    plot_training_curve,
+)
 
 LINHAS = (
     BudgetRow("piso_finetune", 5, 0, 0.41, 0.52),
@@ -105,3 +110,33 @@ def test_matriz_com_classe_sem_suporte_nao_divide_por_zero(tmp_path):
     """Cavalo tem 4 imagens no test_public; uma classe pode ficar sem nenhuma."""
     confusao = [[2, 0, 0], [0, 0, 0], [0, 0, 1]]
     assert plot_confusion_matrix(confusao, ["a", "b", "c"], tmp_path / "m.png").exists()
+
+
+# ===================== curva de orcamento (Parte 2) ========================
+
+
+def test_curva_de_orcamento_grava_arquivo(tmp_path):
+    series = {
+        "piso_finetune": [(1, 0.21, 0.0, 1), (5, 0.465, 0.038, 3), (20, 0.58, 0.0, 1)],
+        "fixmatch": [(1, 0.23, 0.0, 1), (5, 0.438, 0.005, 3), (20, 0.56, 0.0, 1)],
+    }
+    caminho = plot_budget_curve(
+        series, tmp_path / "fig" / "curva.png", ceiling=REFERENCE_CEILING_F1
+    )
+    assert caminho.exists() and caminho.stat().st_size > 0
+
+
+def test_curva_de_orcamento_funciona_com_um_ponto_so(tmp_path):
+    """Durante o projeto a curva e desenhada antes de existirem os tres orcamentos."""
+    series = {"piso_finetune": [(5, 0.465, 0.038, 3)]}
+    assert plot_budget_curve(series, tmp_path / "c.png").exists()
+
+
+def test_curva_de_orcamento_sem_teto_nao_desenha_a_linha(tmp_path):
+    series = {"piso_finetune": [(5, 0.465, 0.038, 3)]}
+    assert plot_budget_curve(series, tmp_path / "c.png", ceiling=None).exists()
+
+
+def test_o_teto_e_o_numero_do_enunciado():
+    """0,686 e o F1 que o monitor mediu; um tipo errado passaria calado na figura."""
+    assert REFERENCE_CEILING_F1 == 0.686

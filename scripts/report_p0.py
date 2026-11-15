@@ -29,7 +29,12 @@ from typing import Sequence
 
 import _bootstrap  # noqa: F401
 
-from src.analysis.budget import BudgetRow, summarize, update_budget_curve
+from src.analysis.budget import (
+    REFERENCE_CEILING_F1,
+    BudgetRow,
+    summarize,
+    update_budget_curve,
+)
 from src.analysis.figures import plot_confusion_matrix, plot_training_curve
 from src.config.schema import ExperimentConfig
 from src.data.augment import build_augmentation
@@ -40,7 +45,7 @@ from src.errors import AppError
 from src.evaluation import EvaluationResult, evaluate
 from src.models import build_model, count_parameters, load_checkpoint
 from src.models.checkpoint import BEST_NAME
-from src.tracking import manifest_seed, read_manifest, resolve_device
+from src.tracking import find_runs, manifest_seed, read_manifest, resolve_device
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SAIDA = PROJECT_ROOT / "outputs" / "p0"
@@ -52,8 +57,22 @@ VERSOES = {
     "p0_finetune": "piso_finetune",
 }
 
-#: Teto de referencia do enunciado (ResNet-18 com todos os rotulos do train).
-TETO_F1 = 0.686
+#: Orcamento da Parte 0. Os de 1 e 20 existem so na curva da Parte 2 e nao
+#: entram nesta tabela, que afirma reportar o orcamento padrao.
+ORCAMENTO_PADRAO = 5
+
+
+def pasta_de_saida(orcamento: int) -> Path:
+    """Onde os artefatos deste orcamento sao gravados.
+
+    O orcamento padrao escreve direto em ``outputs/p0``, que e o que o README e a
+    apresentacao citam. Os outros ganham subpasta ``b<orcamento>``, para que uma
+    chamada da Parte 2 nao sobrescreva a tabela do orcamento de 5 — as duas
+    afirmam coisas diferentes e as duas precisam continuar existindo.
+    """
+    if orcamento == ORCAMENTO_PADRAO:
+        return SAIDA
+    return SAIDA / f"b{orcamento}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,6 +90,12 @@ def parse_args() -> argparse.Namespace:
         help="seed de onde saem a matriz de confusao e a curva "
         "(padrao: a primeira declarada em seeds)",
     )
+    parser.add_argument(
+        "--orcamento",
+        type=int,
+        default=ORCAMENTO_PADRAO,
+        help=f"orcamento de rotulos a reportar (padrao: {ORCAMENTO_PADRAO})",
+    )
     parser.add_argument("--device", default="auto", help="auto, cpu ou cuda")
     return parser.parse_args()
 
@@ -83,11 +108,6 @@ def figuras_seed(args: argparse.Namespace, config: ExperimentConfig) -> int:
     declarasse ``seeds: [7, 11, 13]`` — e as figuras sumiriam em silencio.
     """
     return config.seeds[0] if args.figuras_seed is None else args.figuras_seed
-
-
-def encontrar_execucoes(raiz: Path, nome: str) -> list[Path]:
-    """Diretorios de execucao de uma versao, em ordem de seed."""
-    return sorted(d for d in raiz.glob(f"{nome}_b*_s*") if (d / BEST_NAME).exists())
 
 
 def carregar_execucao(run_dir: Path) -> tuple[ExperimentConfig, int]:
@@ -151,7 +171,7 @@ def tabela_markdown(
             f"{resumo.acuracia_formatada()} | {', '.join(map(str, epocas)) or '—'} |"
         )
     linhas += [
-        f"| teto de referencia (monitor, todos os rotulos) | — | — | {TETO_F1:.3f} | — | — |",
+        f"| teto de referencia (monitor, todos os rotulos) | — | — | {REFERENCE_CEILING_F1:.3f} | — | — |",
         "",
         "O teto vem do enunciado (ResNet-18 treinada com todos os rotulos do `train`).",
         "Nao foi reproduzido aqui; entra como linha de referencia na Parte 2.",
@@ -183,7 +203,8 @@ def escrever_f1_por_classe(
 def main() -> None:
     args = parse_args()
     args.device = resolve_device(args.device)
-    SAIDA.mkdir(parents=True, exist_ok=True)
+    saida = pasta_de_saida(args.orcamento)
+    saida.mkdir(parents=True, exist_ok=True)
 
     linhas_orcamento: list[BudgetRow] = []
     por_versao: dict[str, list[EvaluationResult]] = {}
@@ -192,7 +213,9 @@ def main() -> None:
     classes: Sequence[str] = ()
 
     for nome, metodo in VERSOES.items():
-        execucoes = encontrar_execucoes(args.outputs, nome)
+        execucoes = find_runs(
+            args.outputs, nome, budget=args.orcamento, requires=BEST_NAME
+        )
         if not execucoes:
             print(f"  (nenhuma execucao de {nome} em {args.outputs})")
             continue
@@ -230,12 +253,12 @@ def main() -> None:
                 plot_confusion_matrix(
                     resultado.report.confusion,
                     classes,
-                    SAIDA / "confusao_finetune.png",
+                    saida / "confusao_finetune.png",
                     title=f"Parte 0 (b) — test_public, seed {seed}",
                 )
                 plot_training_curve(
                     historico,
-                    SAIDA / "curva_finetune.png",
+                    saida / "curva_finetune.png",
                     title=f"Parte 0 (b) — ResNet-18 com 105 rotulos, seed {seed}",
                 )
 
@@ -246,10 +269,10 @@ def main() -> None:
         )
 
     resumos = summarize(linhas_orcamento)
-    (SAIDA / "tabela.md").write_text(
+    (saida / "tabela.md").write_text(
         tabela_markdown(resumos, parametros, melhor_epoca), encoding="utf-8"
     )
-    escrever_f1_por_classe(SAIDA / "f1_por_classe.csv", classes, por_versao)
+    escrever_f1_por_classe(saida / "f1_por_classe.csv", classes, por_versao)
     update_budget_curve(CURVA_ORCAMENTO, linhas_orcamento)
 
     print()
@@ -258,8 +281,8 @@ def main() -> None:
             f"  {resumo.metodo:16} F1 macro {resumo.f1_formatado():>16} | "
             f"acuracia {resumo.acuracia_formatada():>16}  ({resumo.seeds} seeds)"
         )
-    print(f"\n  tabela:    {SAIDA / 'tabela.md'}")
-    print(f"  por classe: {SAIDA / 'f1_por_classe.csv'}")
+    print(f"\n  tabela:    {saida / 'tabela.md'}")
+    print(f"  por classe: {saida / 'f1_por_classe.csv'}")
     print(f"  orcamento:  {CURVA_ORCAMENTO}")
 
 

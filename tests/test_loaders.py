@@ -88,3 +88,50 @@ def test_describe_resume_as_fontes(catalog, cfg):
         )
     }
     assert describe(loaders) == "labeled: 105 imagens"
+
+
+# ===================== mu do FixMatch =======================================
+
+
+def test_lote_sem_rotulo_e_mu_vezes_o_rotulado(catalog, data_root):
+    """A aula 13 (p. 87) lista a razao mu entre os dois lotes como entrada."""
+    from dataclasses import replace
+
+    cfg = DataConfig(
+        root=data_root, batch_size=4, num_workers=0, unlabeled_batch_ratio=7
+    )
+    assert cfg.unlabeled_batch_size == 28
+
+    loader = unlabeled_loader(
+        catalog,
+        cfg,
+        transform=para_tensor,
+        image_ids=catalog.image_ids(Split.TRAIN)[:60],
+    )
+    imagens, _ids = next(iter(loader))
+    assert imagens.shape[0] == 28
+
+    sem_razao = replace(cfg, unlabeled_batch_ratio=1)
+    outro = unlabeled_loader(
+        catalog,
+        sem_razao,
+        transform=para_tensor,
+        image_ids=catalog.image_ids(Split.TRAIN)[:60],
+    )
+    assert next(iter(outro))[0].shape[0] == 4
+
+
+def test_loader_sem_rotulo_descarta_lote_incompleto(catalog, data_root):
+    """O FixMatch divide a perda por mu*B; um ultimo lote curto mudaria o peso
+    relativo dos dois termos no fim de cada epoca."""
+    cfg = DataConfig(
+        root=data_root, batch_size=4, num_workers=0, unlabeled_batch_ratio=7
+    )
+    loader = unlabeled_loader(
+        catalog,
+        cfg,
+        transform=para_tensor,
+        image_ids=catalog.image_ids(Split.TRAIN)[:30],
+    )
+    assert loader.drop_last is True
+    assert all(imagens.shape[0] == 28 for imagens, _ in loader)

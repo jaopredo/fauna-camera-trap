@@ -199,3 +199,56 @@ def manifest_seed(manifesto: Mapping[str, Any]) -> int:
     conjunto de seeds do experimento, e o diretorio corresponde a uma delas.
     """
     return int(manifesto["run"]["seed"])
+
+
+def find_runs(
+    root: Path | str, name: str, *, budget: int, requires: str | None = None
+) -> list[Path]:
+    """Diretorios de execucao de um experimento num orcamento, em ordem de seed.
+
+    Contraparte de ``ExperimentConfig.run_name``: aquele grava
+    ``<nome>_b<orcamento>_s<seed>``, este procura. Ficam juntos aqui porque os
+    relatorios da Parte 0, 1 e 2 precisam do mesmo filtro, e tres globs copiados
+    divergiriam.
+
+    Dois filtros, e os dois sao necessarios:
+
+    * **prefixo exato** — ``p0_finetune`` nao pode capturar ``p0_finetune_weak``,
+      que e o controle de aumentacao e e outro experimento;
+    * **orcamento** — as execucoes de 1 e 20 rotulos da Parte 2 moram no mesmo
+      ``outputs/``. Sem este filtro, uma tabela que afirma reportar o orcamento de
+      5 passaria a tirar media sobre orcamentos diferentes, sem nenhum aviso.
+
+    ``requires`` restringe aos diretorios que tem o arquivo indicado — tipicamente
+    o checkpoint, para nao tentar avaliar uma execucao interrompida.
+    """
+    root = Path(root)
+    encontradas = (
+        d
+        for d in root.glob(f"{name}_b{budget}_s*")
+        if d.is_dir() and d.name.rsplit("_b", 1)[0] == name
+    )
+    if requires is not None:
+        encontradas = (d for d in encontradas if (d / requires).exists())
+    return sorted(encontradas)
+
+
+def runs_at_budget(
+    root: Path | str, *, budget: int, requires: str | None = None
+) -> list[Path]:
+    """**Todas** as execucoes de um orcamento, qualquer que seja o experimento.
+
+    Contraparte de ``find_runs`` para o caso em que a pergunta nao e "onde estao as
+    execucoes deste experimento" e sim "qual de todos os modelos treinados neste
+    orcamento e o melhor no ``val``" — que e como a Parte 3 encontra o modelo
+    entregue, sem precisar que o nome do experimento vencedor esteja escrito no
+    script. Isso tambem mantem a Parte 3 neutra: ela nao cita trilha nenhuma.
+
+    O ``_s`` no final do padrao nao e decorativo: sem ele, ``_b2_`` capturaria
+    ``_b20_``.
+    """
+    root = Path(root)
+    encontradas = (d for d in root.glob(f"*_b{budget}_s*") if d.is_dir())
+    if requires is not None:
+        encontradas = (d for d in encontradas if (d / requires).exists())
+    return sorted(encontradas)

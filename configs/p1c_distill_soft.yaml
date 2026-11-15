@@ -1,0 +1,59 @@
+# Parte 1, Trilha C — o aluno: ResNet-18 destilando o professor zero-shot.
+#
+# Tratamento de ruido: ROTULOS SUAVES COM TEMPERATURA (obrigatorio 3).
+# Usa todas as 6.505 imagens, sem descartar nenhuma. Nao pode filtrar classe
+# nenhuma, que e exatamente a patologia que a trilha B diagnosticou (D17).
+#
+# O professor e o `clip`, nao o `bioclip`: medimos no test_public que o generico
+# faz 0,350 de F1 macro contra 0,313 do especializado em biologia (ver
+# outputs/teacher/zero_shot.md). Rotular com o professor mais forte e a escolha
+# obvia; o bioclip continua na tabela do obrigatorio 1.
+#
+# Mesmo backbone da Parte 0 (b), como o enunciado exige de todas as trilhas.
+name: p1c_soft
+seeds: [0, 42, 123]
+output_dir: outputs
+
+data:
+  root: data
+  budget: 5
+  image_size: 224
+  batch_size: 16
+  # 7 imagens do professor por imagem rotulada -> lote de 112, ~58 passos por
+  # epoca. O MESMO cronograma da trilha B, de proposito: a comparacao entre as
+  # duas trilhas isola a perda, nao o numero de passos.
+  unlabeled_batch_ratio: 7
+  # 4 e nao 8: sao processos carregando imagens, cada um com buffer proprio, e
+  # 8 estourou a RAM desta maquina. Nao afeta resultado nenhum, so a velocidade
+  # de carregamento. Em maquina apertada, `--set data.num_workers=2`.
+  num_workers: 4
+  augment: weak
+  # UMA vista, nao o par fraco/forte: o rotulo do professor e fixo por imagem, nao
+  # ha consistencia a impor. `weak_strong` e da trilha B.
+  augment_unlabeled: weak
+
+model:
+  name: resnet18
+  pretrained: true
+  params: {}
+
+strategy:
+  name: distillation
+  params:
+    cache: outputs/teacher/clip_train.npz
+    mode: soft
+    # acima de 1 espalha massa para as classes que o professor pos em segundo
+    # lugar — o sinal que o pseudo-rotulo duro joga fora
+    temperature: 2.0
+    lambda_u: 1.0
+
+optim:
+  epochs: 30
+  # 3e-5 e nao 1e-4: com o pool como fonte primaria sao ~58 passos por epoca em vez
+  # de 7, logo ~9 passagens pelos 105 rotulos por epoca. A D16 mostrou que a mesma
+  # lr da Parte 0 memoriza 4x mais nesse regime e faz o modelo ficar
+  # confiantemente errado. Licao importada da trilha B, nao redescoberta aqui.
+  lr: 0.00003
+  weight_decay: 0.0001
+  monitor: macro_f1
+  save_every: 5

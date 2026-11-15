@@ -1,7 +1,9 @@
-"""Strategies de treino. Cada trilha do enunciado entra como uma implementacao aqui.
+"""Strategies de treino: o contrato, o registry, e a estrategia neutra.
 
-Os modulos concretos sao importados no fim deste arquivo para que o decorador
-``@register_strategy`` rode no import do pacote.
+``supervised`` nao pertence a nenhuma trilha — e o piso da Parte 0 e o modelo que
+entregamos. As estrategias **de trilha** moram em ``src/tracks/<trilha>/`` e se
+registram quando ``src.tracks`` descobre a pasta, importado no fim deste arquivo.
+Assim apagar uma trilha e apagar a pasta dela: nao ha import dela aqui.
 """
 
 from src.methods.base import Batch, StepOutput, TrainingStrategy
@@ -23,3 +25,4 @@ __all__ = [
 ]
 
 from src.methods import supervised  # noqa: E402,F401  isort:skip
+from src import tracks  # noqa: E402,F401  isort:skip

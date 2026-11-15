@@ -20,6 +20,13 @@ from typing import Iterable, Mapping, Sequence
 #: Ordem exata das colunas do entregavel.
 BUDGET_COLUMNS = ("metodo", "orcamento", "seed", "f1_macro", "acuracia")
 
+#: Teto de referencia do enunciado: F1 macro que o monitor obteve no ``test_public``
+#: com uma ResNet-18 do ImageNet treinada com **todos** os rotulos do ``train``.
+#: E referencia, nao limite — o enunciado diz que da para chegar perto ou passar.
+#: Fica aqui porque e a linha horizontal da curva de orcamento, e porque um numero
+#: do enunciado nao pode estar copiado em tres scripts de relatorio.
+REFERENCE_CEILING_F1 = 0.686
+
 
 @dataclass(frozen=True)
 class BudgetRow:

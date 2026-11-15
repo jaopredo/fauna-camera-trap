@@ -68,13 +68,29 @@ def unlabeled_loader(
         image_ids=None if image_ids is None else tuple(image_ids),
         transform=transform,
     )
-    return _loader(dataset, cfg, shuffle=True, drop_last=True)
+    # mu vezes maior que o lote rotulado, e com drop_last: o FixMatch divide a
+    # perda nao supervisionada por mu*B, e um ultimo lote curto mudaria o peso
+    # relativo dos dois termos no fim de cada epoca
+    return _loader(
+        dataset,
+        cfg,
+        shuffle=True,
+        drop_last=True,
+        batch_size=cfg.unlabeled_batch_size,
+    )
 
 
-def _loader(dataset, cfg: DataConfig, *, shuffle: bool, drop_last: bool) -> DataLoader:
+def _loader(
+    dataset,
+    cfg: DataConfig,
+    *,
+    shuffle: bool,
+    drop_last: bool,
+    batch_size: int | None = None,
+) -> DataLoader:
     return DataLoader(
         dataset,
-        batch_size=cfg.batch_size,
+        batch_size=cfg.batch_size if batch_size is None else batch_size,
         shuffle=shuffle,
         num_workers=cfg.num_workers,
         drop_last=drop_last,
