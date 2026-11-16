@@ -3,6 +3,8 @@
 /data
 # artefatos de execucao: cada run grava aqui (ver src/pa3/tracking.py)
 /outputs
+# pesos do modelo entregue: 45 MB, enviados ao monitor por link
+/weights
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,0 +1,34 @@
+# Configuracao do MODELO ENTREGUE, lida por padrao pelo `predict.py`.
+#
+# Nao treina nada: descreve so o que a inferencia precisa saber para reconstruir
+# a arquitetura antes de carregar `weights/modelo.pt`. O par config + pesos tem
+# de casar, entao os campos aqui sao copia fiel de `configs/p1c_distill_filter.yaml`,
+# que e a execucao escolhida no `val` (`outputs/p1c_filter_b5_s0`, epoca 28,
+# F1 macro de validacao 0,4675 — o melhor do orcamento de 5).
+#
+# `pretrained: false` e a garantia de "sem internet" do enunciado: o backbone
+# nasce aleatorio e todos os pesos vem do checkpoint em disco. O `predict.py`
+# ainda forca esse valor por conta propria, de modo que nem editar este arquivo
+# faz a inferencia baixar algo.
+name: entrega
+seeds: [0]
+output_dir: outputs
+
+data:
+  root: data
+  # unico campo de `data` que a inferencia usa: define o reescalonamento da
+  # aumentacao `eval`. Mudar isto aqui sem retreinar quebra o casamento com os pesos.
+  image_size: 224
+  batch_size: 16
+  budget: 5
+
+model:
+  name: resnet18
+  pretrained: false
+  params: {}
+
+# Exigida pelo schema (`strategy` e obrigatoria em toda configuracao), e ignorada
+# na inferencia: `predict.py` nao constroi estrategia de treino nenhuma.
+strategy:
+  name: supervised
+  params: {}
